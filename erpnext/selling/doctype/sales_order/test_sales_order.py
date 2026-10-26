@@ -3946,6 +3946,217 @@ class TestSalesOrder(ERPNextTestSuite):
 		self.assertEqual(serial_nos, serial_nos_in_bundle)
 		self.assertEqual(batch_nos, batches_in_bundle)
 
+<<<<<<< HEAD
+=======
+	def test_sales_team_contribution_follows_grant_commission(self):
+		"""Sales-person allocation tracks the grant-commission-eligible amount, not the gross total.
+
+		The Item "Grant Commission" flag includes an item in both Sales Partner and Sales Person
+		commission, so each sales person's allocated_amount is a share of
+		amount_eligible_for_commission rather than net_total.
+		"""
+		previous_rates = {
+			name: frappe.db.get_value("Sales Person", name, "commission_rate")
+			for name in ("_Test Sales Person 1", "_Test Sales Person 2")
+		}
+		frappe.db.set_value("Sales Person", "_Test Sales Person 1", "commission_rate", 10)
+		frappe.db.set_value("Sales Person", "_Test Sales Person 2", "commission_rate", 0)
+		frappe.db.set_value("Item", "_Test Item", "grant_commission", 1)
+		frappe.db.set_value("Item", "_Test FG Item", "grant_commission", 0)
+		try:
+			so = make_sales_order(
+				do_not_save=True,
+				item_list=[
+					{"item_code": "_Test Item", "warehouse": "_Test Warehouse - _TC", "qty": 10, "rate": 100},
+					{
+						"item_code": "_Test FG Item",
+						"warehouse": "_Test Warehouse - _TC",
+						"qty": 10,
+						"rate": 100,
+					},
+				],
+			)
+			so.append(
+				"sales_team",
+				{"sales_person": "_Test Sales Person 1", "allocated_percentage": 60, "commission_rate": 10},
+			)
+			so.append(
+				"sales_team",
+				{"sales_person": "_Test Sales Person 2", "allocated_percentage": 40, "commission_rate": 0},
+			)
+			so.save()
+
+			self.assertEqual(so.net_total, 2000)
+			self.assertEqual(so.amount_eligible_for_commission, 1000)  # only the grant_commission item
+
+			first, second = so.sales_team
+			# allocation follows the eligible amount (1000), not net_total (2000)
+			self.assertEqual(first.allocated_amount, 600)
+			self.assertEqual(first.incentives, 60)  # 600 * 10%
+			self.assertEqual(second.allocated_amount, 400)
+			self.assertEqual(second.incentives, 0)
+		finally:
+			for name, rate in previous_rates.items():
+				frappe.db.set_value("Sales Person", name, "commission_rate", rate)
+			# grant_commission defaults to 1 for both items; restore
+			frappe.db.set_value("Item", "_Test Item", "grant_commission", 1)
+			frappe.db.set_value("Item", "_Test FG Item", "grant_commission", 1)
+
+	def test_sales_team_allocated_percentage_must_total_100(self):
+		with self.subTest("partial allocation is rejected"):
+			so = make_sales_order(do_not_save=True)
+			so.append("sales_team", {"sales_person": "_Test Sales Person 1", "allocated_percentage": 60})
+			self.assertRaises(frappe.ValidationError, so.save)
+
+		with self.subTest("allocation totalling 100 is accepted"):
+			so = make_sales_order(do_not_save=True)
+			so.append("sales_team", {"sales_person": "_Test Sales Person 1", "allocated_percentage": 60})
+			so.append("sales_team", {"sales_person": "_Test Sales Person 2", "allocated_percentage": 40})
+			so.save()
+			self.assertEqual(sum(d.allocated_percentage for d in so.sales_team), 100)
+
+		with self.subTest("floating-point drift in the total is tolerated"):
+			# 10.0 + 58.02 + 31.98 accumulates to 100.00000000000001 in binary floating point
+			so = make_sales_order(do_not_save=True)
+			for sales_person, percentage in (
+				("_Test Sales Person", 10.0),
+				("_Test Sales Person 1", 58.02),
+				("_Test Sales Person 2", 31.98),
+			):
+				so.append("sales_team", {"sales_person": sales_person, "allocated_percentage": percentage})
+			so.save()
+
+	def test_sales_team_disabled_sales_person_rejected(self):
+		frappe.db.set_value("Sales Person", "_Test Sales Person 2", "enabled", 0)
+		try:
+			so = make_sales_order(do_not_save=True)
+			so.append("sales_team", {"sales_person": "_Test Sales Person 2", "allocated_percentage": 100})
+			self.assertRaises(frappe.ValidationError, so.save)
+		finally:
+			frappe.db.set_value("Sales Person", "_Test Sales Person 2", "enabled", 1)
+
+	def test_sales_team_disabled_sales_person_blocks_downstream(self):
+		sales_person = "_Test Sales Person 2"
+
+		so = make_sales_order(do_not_save=True)
+		so.append("sales_team", {"sales_person": sales_person, "allocated_percentage": 100})
+		so.submit()
+
+		frappe.db.set_value("Sales Person", sales_person, "enabled", 0)
+		try:
+			with self.subTest("delivery note against the order is rejected"):
+				self.assertRaisesRegex(frappe.ValidationError, "is disabled", make_delivery_note, so.name)
+
+			with self.subTest("sales invoice against the order is rejected"):
+				self.assertRaisesRegex(frappe.ValidationError, "is disabled", make_sales_invoice, so.name)
+		finally:
+			frappe.db.set_value("Sales Person", sales_person, "enabled", 1)
+
+	def test_sales_partner_commission(self):
+		"""Sales Partner commission: total_commission = amount_eligible_for_commission * rate / 100."""
+		frappe.db.set_value("Item", "_Test Item", "grant_commission", 1)
+		try:
+			so = make_sales_order(qty=10, rate=100, do_not_save=True)
+			so.sales_partner = "_Test Sales Partner India - 1"
+			so.commission_rate = 7
+			so.save()
+
+			self.assertEqual(so.amount_eligible_for_commission, 1000)
+			self.assertEqual(so.total_commission, 70)  # 1000 * 7%
+
+			with self.subTest("commission rate above 100 is rejected"):
+				so.commission_rate = 101
+				self.assertRaises(frappe.ValidationError, so.save)
+		finally:
+			frappe.db.set_value("Item", "_Test Item", "grant_commission", 1)
+
+	def test_commission_fields_not_copied_on_duplicate(self):
+		"""Commission rate/amount fields are no_copy; only the sales partner carries to a copy."""
+		frappe.db.set_value("Item", "_Test Item", "grant_commission", 1)
+		try:
+			so = make_sales_order(qty=10, rate=100, do_not_save=True)
+			so.sales_partner = "_Test Sales Partner India - 1"
+			so.commission_rate = 7
+			so.save()
+			self.assertEqual(so.total_commission, 70)
+
+			# ignore_no_copy=False mirrors UI "Duplicate"/amend, which honour no_copy
+			duplicate = frappe.copy_doc(so, ignore_no_copy=False)
+			self.assertEqual(duplicate.sales_partner, "_Test Sales Partner India - 1")
+			self.assertFalse(duplicate.commission_rate)
+			self.assertFalse(duplicate.total_commission)
+			self.assertFalse(duplicate.amount_eligible_for_commission)
+		finally:
+			frappe.db.set_value("Item", "_Test Item", "grant_commission", 1)
+
+	def test_commission_rate_carried_through_mapper(self):
+		"""commission_rate is no_copy, but Make Delivery Note / Sales Invoice still carries it."""
+		from erpnext.selling.doctype.sales_order.mapper import make_delivery_note, make_sales_invoice
+
+		original = frappe.db.get_value("Item", "_Test Item", "grant_commission")
+		frappe.db.set_value("Item", "_Test Item", "grant_commission", 1)
+		try:
+			so = make_sales_order(qty=10, rate=100, do_not_save=True)
+			so.sales_partner = "_Test Sales Partner India - 1"
+			so.commission_rate = 7
+			so.submit()
+
+			# carried to the mapped (unsaved) documents even though the field is no_copy
+			self.assertEqual(make_delivery_note(so.name).commission_rate, 7)
+			self.assertEqual(make_sales_invoice(so.name).commission_rate, 7)
+		finally:
+			frappe.db.set_value("Item", "_Test Item", "grant_commission", original)
+
+	def test_shipping_contact_person_flows_to_delivery_note_and_sales_invoice(self):
+		billing_contact = "_Test Contact for _Test Customer-_Test Customer"
+		shipping_contact = "_Test Contact 2 for _Test Customer-_Test Customer"
+
+		so = make_sales_order(customer="_Test Customer", do_not_submit=True)
+		so.contact_person = billing_contact
+		so.shipping_contact_person = shipping_contact
+		so.save()
+
+		# fetch_from fills the display fields off the shipping contact, not the billing one
+		self.assertEqual(so.shipping_contact_display, "_Test Contact 2 for _Test Customer")
+		self.assertEqual(so.shipping_contact_email, "test_contact_two_customer@example.com")
+
+		so.submit()
+
+		dn = make_delivery_note(so.name)
+		self.assertEqual(dn.contact_person, billing_contact)
+		self.assertEqual(dn.shipping_contact_person, shipping_contact)
+
+		si = make_sales_invoice(so.name)
+		self.assertEqual(si.shipping_contact_person, shipping_contact)
+
+	def test_get_party_details_blanks_shipping_contact(self):
+		# unlike the billing contact there is no default to fall back on, so the keys must
+		# still come back as None — that is what clears the previous party's contact on the form
+		party_details = get_party_details(
+			party="_Test Customer",
+			party_type="Customer",
+			company="_Test Company",
+			doctype="Sales Order",
+		)
+		for fieldname in (
+			"shipping_contact_person",
+			"shipping_contact_display",
+			"shipping_contact_mobile",
+			"shipping_contact_email",
+		):
+			self.assertIn(fieldname, party_details)
+			self.assertIsNone(party_details[fieldname])
+
+		# purchase transactions have no such field, so the keys must not be added there
+		purchase_details = get_party_details(
+			party="_Test Supplier",
+			party_type="Supplier",
+			company="_Test Company",
+			doctype="Purchase Order",
+		)
+		self.assertNotIn("shipping_contact_person", purchase_details)
+
+>>>>>>> a045808 (test(selling): cover a disabled sales person carried over from a source document)
 
 def compare_payment_schedules(doc, doc1, doc2):
 	for index, schedule in enumerate(doc1.get("payment_schedule")):
