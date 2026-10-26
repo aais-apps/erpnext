@@ -25,6 +25,7 @@ def after_install():
 	set_single_defaults()
 	create_print_setting_custom_fields()
 	create_address_and_contact_custom_fields()
+	setup_company_address_permissions()
 	create_custom_company_links()
 	add_all_roles_to("Administrator")
 	create_default_success_action()
@@ -145,6 +146,7 @@ def create_address_and_contact_custom_fields():
 					"fieldtype": "Check",
 					"default": "0",
 					"insert_after": "linked_with",
+					"permlevel": 1,
 				},
 			],
 			"Contact": [
@@ -159,6 +161,25 @@ def create_address_and_contact_custom_fields():
 	)
 
 
+<<<<<<< HEAD
+=======
+def setup_company_address_permissions():
+	"""Only Accounts Manager and System Manager may mark an address as the company's own (permlevel 1)."""
+	from frappe.permissions import add_permission, update_permission_property
+
+	for role in ("System Manager", "Accounts Manager"):
+		add_permission("Address", role, 1)
+		update_permission_property("Address", role, 1, "write", 1)
+
+
+def create_default_success_action():
+	for success_action in get_default_success_action():
+		if not frappe.db.exists("Success Action", success_action.get("ref_doctype")):
+			doc = frappe.get_doc(success_action)
+			doc.insert(ignore_permissions=True)
+
+
+>>>>>>> f6daf3e (fix(accounts): restrict company address flag to accounts and system managers)
 def create_custom_company_links():
 	"""Add link fields to Company in Email Account and Communication.
 
