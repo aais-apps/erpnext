@@ -908,11 +908,21 @@ class calculate_taxes_and_totals:
 
 			self._set_in_company_currency(self.doc, ["rounding_adjustment", "rounded_total"])
 
+<<<<<<< HEAD
 	def _cleanup(self):
 		if not self.doc.get("is_consolidated"):
 			for tax in self.doc.get("taxes"):
 				if not tax.get("dont_recompute_tax"):
 					tax.item_wise_tax_detail = json.dumps(tax.item_wise_tax_detail, separators=(",", ":"))
+=======
+			if self.doc.rounded_total:
+				# converting the rounded total on its own can differ from the row-wise base total by a
+				# currency fraction; derive it from the base totals the ledger is posted with
+				self.doc.base_rounded_total = flt(
+					self.doc.base_grand_total + self.doc.base_rounding_adjustment,
+					self.doc.precision("base_rounded_total"),
+				)
+>>>>>>> 1aff6c9 (fix(accounts): derive base rounded total from base grand total and adjustment)
 
 	def set_discount_amount(self):
 		if self.doc.additional_discount_percentage:
