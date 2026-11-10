@@ -6,7 +6,7 @@ from erpnext.patches.v16_0 import (
 	mirror_release_perms_to_custom_docperm,
 	remove_all_role_from_payment_terms_template,
 )
-from erpnext.setup.install import grant_address_read_to_accounts_manager
+from erpnext.setup.install import setup_company_address_permissions
 from erpnext.tests.permission_test_utils import insert_test_record
 
 FLAGS = (
@@ -122,6 +122,7 @@ class TestPermissionPatches(FrappeTestCase):
 
 	def test_address_grant_is_idempotent_and_keeps_other_roles(self):
 		frappe.db.delete("Custom DocPerm", {"parent": "Address"})
+<<<<<<< HEAD
 		frappe.clear_cache(doctype="Address")
 		for _run in range(2):
 			grant_address_read_to_accounts_manager()
@@ -135,3 +136,29 @@ class TestPermissionPatches(FrappeTestCase):
 				(rules[0].permlevel, rules[0].if_owner, rules[0].read, rules[0].export), (0, 0, 1, 0)
 			)
 			self.assertEqual(self.address_rules_except_accounts_manager(), self.shipped_address_rules())
+=======
+		frappe.db.delete("Permission Log", {"for_document": "Address"})
+		shipped = {}
+		for rule in frappe.get_all(
+			"DocPerm", filters={"parent": "Address", "permlevel": 0}, fields=["role", "read", "if_owner"]
+		):
+			shipped[(rule.role, rule.if_owner)] = rule.read
+		setup_company_address_permissions()
+		setup_company_address_permissions()
+		accounts_manager = frappe.get_all(
+			"Custom DocPerm",
+			filters={"parent": "Address", "role": "Accounts Manager", "permlevel": 0},
+			fields=["read"],
+		)
+		self.assertEqual(len(accounts_manager), 1)
+		self.assertEqual(accounts_manager[0].read, 1)
+		custom = {}
+		for rule in frappe.get_all(
+			"Custom DocPerm",
+			filters={"parent": "Address", "permlevel": 0},
+			fields=["role", "read", "if_owner"],
+		):
+			if rule.role != "Accounts Manager":
+				custom[(rule.role, rule.if_owner)] = rule.read
+		self.assertEqual(custom, shipped)
+>>>>>>> 5ccbb0e (fix(accounts): preserve company address selection permissions)
