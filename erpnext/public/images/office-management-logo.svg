@@ -1,25 +1,29 @@
-<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M71.4286 0H28.5714C12.7919 0 0 12.7919 0 28.5714V71.4286C0 87.2081 12.7919 100 28.5714 100H71.4286C87.2081 100 100 87.2081 100 71.4286V28.5714C100 12.7919 87.2081 0 71.4286 0Z" fill="#2563EB"/>
-<!-- Building / Office icon -->
-<rect x="25" y="28" width="22" height="48" rx="2" fill="white"/>
-<rect x="53" y="38" width="22" height="38" rx="2" fill="white" fill-opacity="0.85"/>
-<!-- Windows on left building -->
-<rect x="30" y="34" width="5" height="5" rx="1" fill="#2563EB"/>
-<rect x="38" y="34" width="5" height="5" rx="1" fill="#2563EB"/>
-<rect x="30" y="43" width="5" height="5" rx="1" fill="#2563EB"/>
-<rect x="38" y="43" width="5" height="5" rx="1" fill="#2563EB"/>
-<rect x="30" y="52" width="5" height="5" rx="1" fill="#2563EB"/>
-<rect x="38" y="52" width="5" height="5" rx="1" fill="#2563EB"/>
-<!-- Door on left building -->
-<rect x="33" y="63" width="6" height="13" rx="1" fill="#2563EB"/>
-<!-- Windows on right building -->
-<rect x="58" y="44" width="5" height="5" rx="1" fill="#2563EB"/>
-<rect x="66" y="44" width="5" height="5" rx="1" fill="#2563EB"/>
-<rect x="58" y="53" width="5" height="5" rx="1" fill="#2563EB"/>
-<rect x="66" y="53" width="5" height="5" rx="1" fill="#2563EB"/>
-<rect x="58" y="62" width="5" height="5" rx="1" fill="#2563EB"/>
-<rect x="66" y="62" width="5" height="5" rx="1" fill="#2563EB"/>
-<!-- Roof detail -->
-<rect x="31" y="23" width="10" height="5" rx="1" fill="white" fill-opacity="0.7"/>
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rounded Squircle Base matching Education/Builder -->
+  <rect width="120" height="120" rx="26" fill="#0062B8"/>
+  <!-- Office Management Emblem: Modern Architectural Headquarters & Administrative Tower -->
+  <!-- Left Main Tower -->
+  <path d="M28 40C28 37.7909 29.7909 36 32 36H56C58.2091 36 60 37.7909 60 40V92H28V40Z" fill="white"/>
+  <!-- Right Annex Tower -->
+  <path d="M64 52C64 49.7909 65.7909 48 68 48H88C90.2091 48 92 49.7909 92 52V92H64V52Z" fill="white" fill-opacity="0.88"/>
+  <!-- Tower Angled Spire / Crest Accent -->
+  <path d="M38 27L44 24V36H38V27Z" fill="white" fill-opacity="0.95"/>
+  <!-- Main Tower Windows Grid -->
+  <rect x="35" y="44" width="7" height="6" rx="1.5" fill="#0062B8"/>
+  <rect x="46" y="44" width="7" height="6" rx="1.5" fill="#0062B8"/>
+  <rect x="35" y="55" width="7" height="6" rx="1.5" fill="#0062B8"/>
+  <rect x="46" y="55" width="7" height="6" rx="1.5" fill="#0062B8"/>
+  <rect x="35" y="66" width="7" height="6" rx="1.5" fill="#0062B8"/>
+  <rect x="46" y="66" width="7" height="6" rx="1.5" fill="#0062B8"/>
+  <!-- Main Entrance / Portal -->
+  <path d="M40 82C40 79.7909 41.7909 78 44 78H47C49.2091 78 51 79.7909 51 82V92H40V82Z" fill="#0062B8"/>
+  <!-- Right Tower Windows Grid -->
+  <rect x="71" y="56" width="6" height="5" rx="1.2" fill="#0062B8"/>
+  <rect x="80" y="56" width="6" height="5" rx="1.2" fill="#0062B8"/>
+  <rect x="71" y="66" width="6" height="5" rx="1.2" fill="#0062B8"/>
+  <rect x="80" y="66" width="6" height="5" rx="1.2" fill="#0062B8"/>
+  <rect x="71" y="76" width="6" height="5" rx="1.2" fill="#0062B8"/>
+  <rect x="80" y="76" width="6" height="5" rx="1.2" fill="#0062B8"/>
+  <!-- Foundation Line -->
+  <rect x="22" y="92" width="76" height="4" rx="2" fill="white"/>
 </svg>
-
