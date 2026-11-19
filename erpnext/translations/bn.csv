@@ -1,0 +1,197 @@
+Office Management,অফিস ব্যবস্থাপনা
+Accounts,হিসাববিজ্ঞান
+Accounting,হিসাবরক্ষণ
+Chart of Accounts,হিসাবের চার্ট
+Company,প্রতিষ্ঠান / কোম্পানি
+Fiscal Year,অর্থবছর
+Journal Entry,জাবেদা দাখিলা
+General Ledger,সাধারণ খতিয়ান
+Trial Balance,রেওয়ামিল
+Balance Sheet,উদ্বৃত্তপত্র
+Profit and Loss Statement,লাভ-ক্ষতি বিবরণী
+Cash Flow,নগদ প্রবাহ বিবরণী
+Selling,বিক্রয়
+Customer,গ্রাহক
+Customers,গ্রাহকবৃন্দ
+Customer Group,গ্রাহকের বিভাগ
+Sales Order,বিক্রয় আদেশ
+Sales Invoice,বিক্রয় চালান
+Quotation,দরপত্র / কোটেশন
+Delivery Note,সরবরাহ পত্র
+Buying,ক্রয়
+Supplier,সরবরাহকারী
+Suppliers,সরবরাহকারীবৃন্দ
+Supplier Group,সরবরাহকারী গ্রুপ
+Purchase Order,ক্রয় আদেশ
+Purchase Invoice,ক্রয় চালান
+Purchase Receipt,প্রাপ্তি রশিদ
+Stock,মজুদ পণ্য
+Item,পণ্য / সামগ্রী
+Items,পণ্যসমূহ
+Item Group,পণ্য শ্রেণি
+Warehouse,গুদাম / ওয়্যারহাউস
+Stock Entry,মজুদ অন্তর্ভুক্তি
+Delivery,ডেলিভারি / সরবরাহ
+Stock Balance,মজুদ স্থিতি
+Stock Ledger,মজুদ খতিয়ান
+Human Resources,মানবসম্পদ
+Employee,কর্মী / কর্মকর্তা
+Employees,কর্মকর্তা-কর্মচারীবৃন্দ
+Department,বিভাগ
+Designation,পদবি
+Attendance,হাজিরা
+Leave Application,ছুটির আবেদন
+Leave Type,ছুটির ধরন
+Salary,বেতন
+Salary Slip,বেতন বিবরণী
+Payroll,বেতন প্রদান
+Payroll Entry,বেতন এন্ট্রি
+Salary Component,বেতনের অংশ
+Basic Salary,মূল বেতন
+House Rent Allowance,বাড়ি ভাড়া ভাতা
+Medical Allowance,চিকিৎসা ভাতা
+Conveyance Allowance,যাতায়াত ভাতা
+Bonus,বোনাস
+Overtime,অতিরিক্ত সময় ভাতা
+Deductions,কর্তন
+Provident Fund,ভবিষ্য তহবিল (পিএফ)
+Tax,আয়কর
+Projects,প্রকল্পসমূহ
+Project,প্রকল্প
+Task,কাজ / টাস্ক
+Tasks,কাজসমূহ
+Timesheet,কাজের সময় বিবরণী
+Quality,গুণমান
+CRM,কাস্টমার রিলেশনশিপ (সিআরএম)
+Lead,সম্ভাব্য গ্রাহক
+Opportunity,সুযোগ
+Support,গ্রাহক সেবা
+Issue,সমস্যা / টিকিট
+Warranty Claim,ওয়ারেন্টি দাবি
+Asset,সম্পদ
+Assets,সম্পদসমূহ
+Asset Category,সম্পদের ধরন
+Asset Movement,সম্পদ স্থানান্তর
+Depreciation,অবচয়
+Manufacturing,উৎপাদন
+Work Order,কাজের আদেশ
+Bill of Materials,উপাদান তালিকা (BOM)
+Operation,প্রক্রিয়া
+Workstation,কাজের স্থান
+Item Code,পণ্য কোড
+Item Name,পণ্যের নাম
+Description,বিবরণ
+Unit of Measure,পরিমাপের একক
+Standard Selling Rate,বিক্রয় মূল্য
+Standard Buying Rate,ক্রয় মূল্য
+Quantity,পরিমাণ
+Rate,দর / মূল্য
+Amount,মোট মূল্য
+Discount Amount,ছাড়ের পরিমাণ
+Net Amount,নিট মূল্য
+Taxes and Charges,কর ও চার্জসমূহ
+Tax Rate,করের হার
+Grand Total,সর্বমোট
+Rounded Total,রাউন্ডেড মোট
+In Words,কথায়
+Payment Terms,পরিশোধের শর্তাবলী
+Bank Account,ব্যাংক হিসাব
+Account Name,হিসাবের নাম
+Account Number,হিসাব নম্বর
+Branch,শাখা
+Bank Name,ব্যাংকের নাম
+Cheque,চেক
+Cheque Number,চেক নম্বর
+Cheque Date,চেকের তারিখ
+Mode of Payment,পরিশোধের মাধ্যম
+Paid Amount,পরিশোধিত অর্থ
+Payment Entry,পেমেন্ট এন্ট্রি
+Payment Request,পেমেন্ট অনুরোধ
+Payment Ledger,পেমেন্ট খতিয়ান
+Party Type,পক্ষের ধরন
+Party Name,পক্ষের নাম
+Contact,যোগাযোগ
+Address Line 1,ঠিকানা লাইন ১
+Address Line 2,ঠিকানা লাইন ২
+City,শহর
+Postal Code,পোস্টাল কোড
+Country,দেশ
+Cost Center,ব্যয় কেন্দ্র
+Project Name,প্রকল্পের নাম
+Status,অবস্থা
+Draft,খসড়া
+Submitted,জমাকৃত
+Cancelled,বাতিলকৃত
+Paid,পরিশোধিত
+Unpaid,অপরিশোধিত
+Overdue,মেয়াদোত্তীর্ণ
+Partially Paid,আংশিক পরিশোধিত
+Pending,অপেক্ষারত
+Approved,অনুমোদিত
+Rejected,প্রত্যাখ্যাত
+Completed,সম্পন্ন
+Open,উন্মুক্ত
+Closed,বন্ধ
+Resolved,সমাধানকৃত
+On Hold,স্থগিত
+In Progress,চলমান
+Setup,সেটআপ
+Office Management Settings,অফিস ব্যবস্থাপনা সেটিংস
+Company Settings,কোম্পানি সেটিংস
+Global Defaults,সার্বজনীন ডিফল্ট
+Terms and Conditions,নিয়ম ও শর্তাবলী
+Currency,মুদ্রা
+Currency Exchange,মুদ্রা বিনিময়
+Price List,মূল্য তালিকা
+Item Price,পণ্যের মূল্য
+Discount,ছাড়
+Pricing Rule,মূল্য নির্ধারণের নিয়ম
+Loyalty Program,লয়্যালটি প্রোগ্রাম
+Coupon Code,কুপন কোড
+POS,বিক্রয় কেন্দ্র (পস)
+POS Profile,পস প্রোফাইল
+Opening Entry,প্রারম্ভিক দাখিলা
+Closing Entry,সমাপনী দাখিলা
+Print Format,প্রিন্ট ফরম্যাট
+Print Settings,প্রিন্ট সেটিংস
+Letter Head,লেটারহেড
+Terms,শর্তাবলী
+Signature,স্বাক্ষর
+Authorized Signatory,অনুমোদিত স্বাক্ষরকারী
+Customer Details,গ্রাহকের বিবরণ
+Supplier Details,সরবরাহকারীর বিবরণ
+Shipping Address,সরবরাহ ঠিকানা
+Billing Address,বিলিং ঠিকানা
+Tax ID,কর শনাক্তকরণ নম্বর (TIN)
+PAN,প্যান নম্বর
+VAT,ভ্যাট
+VAT Registration Number,ভ্যাট নিবন্ধন নম্বর
+BIN,বিআইএন (BIN)
+Financial Statement,আর্থিক বিবরণী
+Balance,স্থিতি
+Opening Balance,প্রারম্ভিক স্থিতি
+Closing Balance,সমাপনী স্থিতি
+Debit,ডেবিট
+Credit,ক্রেডিট
+Difference,পার্থক্য
+Income,আয়
+Expense,ব্যয়
+Asset Account,সম্পদ হিসাব
+Liability Account,দায় হিসাব
+Equity Account,মালিকানা স্বত্ব হিসাব
+Income Account,আয় হিসাব
+Expense Account,ব্যয় হিসাব
+Fixed Asset,স্থায়ী সম্পদ
+Current Asset,চলতি সম্পদ
+Current Liability,চলতি দায়
+Bank Clearance,ব্যাংক ক্লিয়ারেন্স
+Bank Reconciliation,ব্যাংক সমন্বয়
+Period Closing Voucher,হিসাব সমাপ্তি ভাউচার
+Exchange Rate,বিনিময় হার
+Multi Currency,বহু-মুদ্রা
+Auditing,নিরীক্ষা
+Internal Audit,অভ্যন্তরীণ নিরীক্ষা
+Risk Management,ঝুঁকি ব্যবস্থাপনা
+Budget,বাজেট
+Budget Variance,বাজেট বিচ্যুতি
+Cost Calculation,ব্যয় গণনা
