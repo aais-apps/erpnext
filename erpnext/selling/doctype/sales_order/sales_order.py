@@ -25,7 +25,7 @@ from erpnext.accounts.doctype.sales_invoice.sales_invoice import (
 	validate_inter_company_party,
 )
 from erpnext.accounts.party import CROSS_PARTY_FIELD_NO_MAP, get_party_account
-from erpnext.buying.utils import check_on_hold_or_closed_status
+from erpnext.buying.utils import check_on_hold_or_closed_status, get_qty_to_order
 from erpnext.controllers.mapper import get_qty_already_mapped
 from erpnext.controllers.selling_controller import SellingController
 from erpnext.manufacturing.doctype.blanket_order.blanket_order import (
@@ -41,8 +41,9 @@ from erpnext.selling.doctype.customer.customer import (
 )
 from erpnext.setup.doctype.item_group.item_group import get_item_group_defaults
 from erpnext.stock.doctype.item.item import get_item_defaults
-from erpnext.stock.doctype.packed_item.packed_item import make_packing_list
+from erpnext.stock.doctype.packed_item.packed_item import get_order_packed_item_pairs, make_packing_list
 from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import (
+	clear_reserve_stock_if_disabled,
 	get_sre_details_for_voucher,
 	get_sre_reserved_qty_details_for_voucher,
 	get_ssb_bundle_for_voucher,
@@ -737,11 +738,10 @@ class SalesOrder(SellingController):
 			update_bin_qty(item_code, warehouse, {"reserved_qty": get_reserved_qty(item_code, warehouse)})
 
 	def on_update_after_submit(self):
-		self.calculate_commission()
-		self.calculate_contribution()
 		self.check_credit_limit()
 
 	def before_update_after_submit(self):
+		super().before_update_after_submit()
 		self.validate_po()
 		self.validate_drop_ship()
 		self.validate_supplier_after_submit()
@@ -901,8 +901,9 @@ class SalesOrder(SellingController):
 				)
 
 	def validate_reserved_stock(self):
-		"""Clean reserved stock flag for non-stock Item"""
+		"""Uncheck Reserve Stock when stock reservation is disabled, and on non-stock items."""
 
+		clear_reserve_stock_if_disabled(self)
 		enable_stock_reservation = frappe.get_single_value("Stock Settings", "enable_stock_reservation")
 
 		for item in self.items:
@@ -973,10 +974,16 @@ class SalesOrder(SellingController):
 				if not frappe.db.exists("Sales Order Item", item.get("sales_order_item")):
 					packed_items.append(item)
 
+			packed_item_warehouses = {d.name: d.warehouse for d in self.packed_items}
 			for item in packed_items:
 				items_details.remove(item)
 				item["qty"] = item.pop("qty_to_reserve")
 				item["from_voucher_type"] = from_voucher_type
+				if not from_voucher_type:
+					# a manual reservation of a component is made in its packed row's warehouse
+					item["warehouse"] = packed_item_warehouses.get(
+						item.get("sales_order_item"), item.get("warehouse")
+					)
 
 				picked_bundle = item.pop("serial_and_batch_bundle", None)
 				if picked_bundle:
@@ -1076,7 +1083,10 @@ class SalesOrder(SellingController):
 				"stock_qty": flt(row.qty) * conversion_factor,
 			}
 
-			if frappe.db.exists("Delivery Schedule Item", row.name):
+			if row.name and frappe.db.exists(
+				"Delivery Schedule Item",
+				{"name": row.name, "sales_order": self.name, "sales_order_item": item_row.name},
+			):
 				doc = frappe.get_doc("Delivery Schedule Item", row.name)
 			else:
 				doc = frappe.new_doc("Delivery Schedule Item")
@@ -1375,69 +1385,34 @@ def make_project(source_name, target_doc=None):
 	return doc
 
 
-def set_reserved_serial_batch(dn_item, sre, use_serial_batch_fields):
+def set_reserved_serial_batch(row, sre_list, use_serial_batch_fields):
 	"""Carry the reserved serial/batch to the row fields, or a bundle when they cannot hold it."""
 	from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import (
 		get_serial_batch_entries_for_voucher,
 	)
 
 	if use_serial_batch_fields:
-		entries = get_serial_batch_entries_for_voucher([sre.name])
+		entries = get_serial_batch_entries_for_voucher([sre.name for sre in sre_list])
 		batch_nos = list({d.batch_no for d in entries if d.batch_no})
 		if len(batch_nos) < 2:
-			dn_item.use_serial_batch_fields = 1
-			dn_item.serial_no = "\n".join(d.serial_no for d in entries if d.serial_no) or None
-			dn_item.batch_no = batch_nos[0] if batch_nos else None
+			row.use_serial_batch_fields = 1
+			row.serial_no = "\n".join(d.serial_no for d in entries if d.serial_no) or None
+			row.batch_no = batch_nos[0] if batch_nos else None
 			return
 
-	dn_item.use_serial_batch_fields = 0
-	dn_item.serial_and_batch_bundle = get_ssb_bundle_for_voucher([sre]).name
+	row.use_serial_batch_fields = 0
+	row.serial_and_batch_bundle = get_ssb_bundle_for_voucher(sre_list).name
 
 
-def set_serial_batch_for_bundle_reservation(source, target, use_serial_batch_fields, packed_sre):
-	for item in source.packed_items:
-		target_item = next(
-			(
-				d
-				for d in target.packed_items
-				if (d.parent_item, d.item_code, d.warehouse)
-				== (item.parent_item, item.item_code, item.warehouse)
-			),
-			None,
-		)
-		if target_item and (sre := [sre for sre in packed_sre if sre.voucher_detail_no == item.name]):
-			if sre[0].reservation_based_on == "Serial and Batch":
-				qty = 0
-				serial_nos = []
-				batch_nos = []
-				if use_serial_batch_fields:
-					target_item.use_serial_batch_fields = 1
-					for item in sre:
-						qty += item.reserved_qty
-						if item.has_serial_no:
-							serial_nos.extend(
-								frappe.get_all(
-									"Serial and Batch Entry",
-									filters={"parent": item.name},
-									pluck="serial_no",
-								)
-							)
-						if item.has_batch_no:
-							batch_nos.extend(
-								frappe.get_all(
-									"Serial and Batch Entry",
-									filters={"parent": item.name},
-									pluck="batch_no",
-								)
-							)
-
-					if len(batch_nos) == 1:
-						target_item.batch_no = batch_nos[0] if batch_nos else None
-					if serial_nos and len(batch_nos) < 2:
-						target_item.serial_no = "\n".join(serial_nos)
-
-				if not use_serial_batch_fields or len(batch_nos) > 1:
-					target_item.serial_and_batch_bundle = get_ssb_bundle_for_voucher(sre).name
+def set_serial_batch_for_bundle_reservation(target, use_serial_batch_fields, packed_sre):
+	for packed_item, so_packed_item in get_order_packed_item_pairs(target):
+		sre_list = [
+			sre
+			for sre in packed_sre
+			if sre.voucher_detail_no == so_packed_item.name and sre.warehouse == packed_item.warehouse
+		]
+		if sre_list and sre_list[0].reservation_based_on == "Serial and Batch":
+			set_reserved_serial_batch(packed_item, sre_list, use_serial_batch_fields)
 
 
 @frappe.whitelist()
@@ -1595,7 +1570,7 @@ def make_delivery_note(source_name, target_doc=None, kwargs=None):
 				dn_item.warehouse = sre.warehouse
 
 				if sre.reservation_based_on == "Serial and Batch" and (sre.has_serial_no or sre.has_batch_no):
-					set_reserved_serial_batch(dn_item, sre, use_serial_batch_fields)
+					set_reserved_serial_batch(dn_item, [sre], use_serial_batch_fields)
 
 				target_doc.append("items", dn_item)
 			else:
@@ -1611,7 +1586,7 @@ def make_delivery_note(source_name, target_doc=None, kwargs=None):
 	# Should be called after mapping items.
 	target_doc.packed_items = []
 	set_missing_values(so, target_doc)
-	set_serial_batch_for_bundle_reservation(so, target_doc, use_serial_batch_fields, packed_sre)
+	set_serial_batch_for_bundle_reservation(target_doc, use_serial_batch_fields, packed_sre)
 
 	return target_doc
 
@@ -1714,14 +1689,13 @@ def make_sales_invoice(
 
 		make_packing_list(target)
 		set_serial_batch_for_bundle_reservation(
-			source,
 			target,
 			frappe.get_single_value("Stock Settings", "use_serial_batch_fields"),
 			get_sre_details_for_voucher("Sales Order", source_name),
 		)
 
 	def set_missing_values(source, target):
-		target.flags.ignore_permissions = True
+		target.flags.ignore_permissions = ignore_permissions
 		target.run_method("set_missing_values")
 		target.run_method("set_po_nos")
 		target.run_method("calculate_taxes_and_totals")
@@ -1984,7 +1958,6 @@ def make_purchase_order(source_name, selected_items=None, target_doc=None):
 		target.apply_discount_on = ""
 		target.additional_discount_percentage = 0.0
 		target.discount_amount = 0.0
-		target.inter_company_order_reference = ""
 		target.shipping_rule = ""
 		target.tc_name = ""
 		target.terms = ""
@@ -2022,8 +1995,8 @@ def make_purchase_order(source_name, selected_items=None, target_doc=None):
 
 	def update_item(source, target, source_parent):
 		target.schedule_date = source.delivery_date
-		target.qty = flt(source.qty) - (flt(source.ordered_qty) / flt(source.conversion_factor))
-		target.stock_qty = flt(source.stock_qty) - flt(source.ordered_qty)
+		target.qty = qty_to_order[source.name]
+		target.stock_qty = target.qty * flt(source.conversion_factor)
 		target.project = source_parent.project
 
 	def update_item_for_packed_item(source, target, _):
@@ -2031,7 +2004,7 @@ def make_purchase_order(source_name, selected_items=None, target_doc=None):
 
 	def filter_items(item, supplier):
 		if (
-			item.ordered_qty < item.stock_qty
+			qty_to_order[item.name] > 0
 			and not is_product_bundle(item.item_code)
 			and item.name in items_to_map
 			and items_to_map[item.name] == supplier
@@ -2042,6 +2015,7 @@ def make_purchase_order(source_name, selected_items=None, target_doc=None):
 
 	sales_order = frappe.get_doc("Sales Order", source_name)
 	sales_order.check_permission("read")
+	qty_to_order = get_qty_to_order(sales_order.items, "sales_order_item")
 	items_to_map = {}
 	for item in selected_items:
 		filters = {"name": item.get("name")} if item.get("name") else {"item_code": item.get("item_code")}
@@ -2269,6 +2243,7 @@ def make_raw_material_request(items, company, sales_order, project=None):
 			{
 				"item_code": item.get("item_code"),
 				"qty": item.get("quantity"),
+				"uom": item.get("uom"),
 				"schedule_date": schedule_date,
 				"warehouse": item_wh.get(item.get("main_bom_item")) or item.get("warehouse"),
 				"sales_order": sales_order,
@@ -2296,18 +2271,10 @@ def make_inter_company_purchase_order(source_name, target_doc=None):
 @frappe.whitelist()
 def create_pick_list(source_name: str, target_doc: str | dict | Document | None = None):
 	from erpnext.stock.doctype.packed_item.packed_item import is_product_bundle
+	from erpnext.stock.doctype.pick_list.pick_list import validate_no_reserved_stock
 
 	source_doc = frappe.get_doc("Sales Order", source_name)
 	so_items = {row.name: row for row in source_doc.items}
-
-	def validate_sales_order():
-		for item in source_doc.items:
-			if item.stock_reserved_qty > 0:
-				frappe.throw(
-					_(
-						"Cannot create a pick list for Sales Order {0} because it has reserved stock. Please unreserve the stock in order to create a pick list."
-					).format(frappe.bold(source_name))
-				)
 
 	def should_pick_packed_item(packed_item) -> bool:
 		# a bundle component is pickable only while its parent row is warehouse-delivered and has qty left
@@ -2316,7 +2283,15 @@ def create_pick_list(source_name: str, target_doc: str | dict | Document | None 
 			parent
 			and parent.delivered_by_supplier != 1
 			and abs(parent.delivered_qty) < abs(parent.qty)
-			and flt(packed_item.qty) > 0
+			and get_packed_qty_to_pick(packed_item, parent) > 0
+		)
+
+	def get_packed_qty_to_pick(packed_item, parent) -> float:
+		# what is left on this component, as components of one bundle can be picked unevenly
+		delivered_qty = flt(packed_item.qty) * flt(parent.delivered_qty) / flt(parent.qty)
+		return flt(
+			flt(packed_item.qty) - max(flt(packed_item.picked_qty), delivered_qty),
+			packed_item.precision("qty"),
 		)
 
 	def update_item_quantity(source, target, source_parent) -> None:
@@ -2332,13 +2307,8 @@ def create_pick_list(source_name: str, target_doc: str | dict | Document | None 
 		target.company_total_stock = bin_details.get("company_total_stock")
 
 	def update_packed_item_qty(source, target, source_parent) -> None:
-		qty = flt(source.qty)
-		for item in source_parent.items:
-			if source.parent_detail_docname == item.name:
-				picked_qty = flt(item.picked_qty) / (flt(item.conversion_factor) or 1)
-				pending_percent = (item.qty - max(picked_qty, item.delivered_qty)) / item.qty
-				target.qty = target.stock_qty = qty * pending_percent
-				return
+		target.qty = target.stock_qty = get_packed_qty_to_pick(source, so_items[source.parent_detail_docname])
+		target.conversion_factor = 1
 
 	def should_pick_order_item(item) -> bool:
 		return (
@@ -2348,7 +2318,7 @@ def create_pick_list(source_name: str, target_doc: str | dict | Document | None 
 		)
 
 	# Don't allow a Pick List to be created against a Sales Order that has reserved stock.
-	validate_sales_order()
+	validate_no_reserved_stock(source_name)
 
 	doc = get_mapped_doc(
 		"Sales Order",

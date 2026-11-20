@@ -289,10 +289,10 @@ class PaymentEntry(AccountsController):
 		if self.flags.get("ignore_reposting_on_reconciliation"):
 			return
 
-		self.needs_repost = self.check_if_fields_updated(
+		needs_repost = self.check_if_fields_updated(
 			fields_to_check=[], child_tables={"references": [], "taxes": [], "deductions": []}
 		)
-		if self.needs_repost:
+		if needs_repost:
 			self.validate_for_repost()
 			self.repost_accounting_entries()
 
@@ -596,17 +596,20 @@ class PaymentEntry(AccountsController):
 				doc.delink_advance_entries(self.name)
 
 	def trigger_invoice_update_for_subscriptions(self):
-		invoice_names = set()
-		for ref in self.references:
-			if ref.reference_doctype in ("Sales Invoice", "Purchase Invoice"):
-				invoice_names.add((ref.reference_doctype, ref.reference_name))
+		for doctype in ("Sales Invoice", "Purchase Invoice"):
+			names = {ref.reference_name for ref in self.references if ref.reference_doctype == doctype}
+			if not names:
+				continue
 
-		for doctype, name in invoice_names:
-			try:
-				doc = frappe.get_doc(doctype, name)
-				doc.refresh_subscription_status()
-			except Exception:
-				frappe.log_error(_("Failed to update subscription status for {0} {1}").format(doctype, name))
+			filters = {"name": ["in", list(names)], "subscription": ["is", "set"]}
+			for name in frappe.get_all(doctype, filters=filters, pluck="name"):
+				try:
+					doc = frappe.get_doc(doctype, name)
+					doc.refresh_subscription_status()
+				except Exception:
+					frappe.log_error(
+						_("Failed to update subscription status for {0} {1}").format(doctype, name)
+					)
 
 	def set_missing_values(self):
 		if self.payment_type == "Internal Transfer":
@@ -694,6 +697,7 @@ class PaymentEntry(AccountsController):
 			):
 				ref_details.update({"exchange_rate": reference_exchange_details.exchange_rate})
 
+			values = {}
 			for field, value in ref_details.items():
 				if d.exchange_gain_loss and self.docstatus != 0 and self.get("_action") != "submit":
 					# for cases where gain/loss is booked into invoice
@@ -703,10 +707,12 @@ class PaymentEntry(AccountsController):
 					continue
 
 				if field == "exchange_rate" or not d.get(field) or force:
-					if self.get("_action") in ("submit", "cancel"):
-						d.db_set(field, value)
-					else:
-						d.set(field, value)
+					values[field] = value
+
+			if values and self.get("_action") in ("submit", "cancel") and not self.is_new():
+				d.db_set(values)
+			else:
+				d.update(values)
 
 	def validate_payment_type(self):
 		if self.payment_type not in ("Receive", "Pay", "Internal Transfer"):
@@ -850,26 +856,29 @@ class PaymentEntry(AccountsController):
 			return ("Purchase Order", "Purchase Invoice", "Journal Entry", "Payment Entry")
 
 	def validate_paid_invoices(self):
-		no_oustanding_refs = {}
-
-		for d in self.get("references"):
-			if not d.allocated_amount:
+		for doctype in ("Sales Invoice", "Purchase Invoice"):
+			names = {
+				d.reference_name
+				for d in self.references
+				if d.allocated_amount and d.reference_doctype == doctype
+			}
+			if not names:
 				continue
 
-			if d.reference_doctype in ("Sales Invoice", "Purchase Invoice"):
-				outstanding_amount, is_return = frappe.get_cached_value(
-					d.reference_doctype, d.reference_name, ["outstanding_amount", "is_return"]
-				)
-				if outstanding_amount <= 0 and not is_return:
-					no_oustanding_refs.setdefault(d.reference_doctype, []).append(d)
+			paid_invoices = frappe.get_all(
+				doctype,
+				filters={"name": ["in", list(names)], "outstanding_amount": ["<=", 0], "is_return": 0},
+				pluck="name",
+			)
+			if not paid_invoices:
+				continue
 
-		for reference_doctype, references in no_oustanding_refs.items():
 			frappe.msgprint(
 				_(
 					"References {0} of type {1} had no outstanding amount left before submitting the Payment Entry. Now they have a negative outstanding amount."
 				).format(
-					frappe.bold(comma_and([d.reference_name for d in references])),
-					_(reference_doctype),
+					frappe.bold(comma_and(paid_invoices)),
+					_(doctype),
 				)
 				+ "<br><br>"
 				+ _("If this is undesirable please cancel the corresponding Payment Entry."),
@@ -1123,7 +1132,9 @@ class PaymentEntry(AccountsController):
 		else:
 			self.status = "Draft"
 
-		self.db_set("status", self.status, update_modified=True)
+		# Insert saves the status; an update of the missing row would only take gap locks
+		if not self.is_new():
+			self.db_set("status", self.status, update_modified=True)
 
 	def set_total_in_words(self):
 		from frappe.utils import money_in_words
@@ -1393,11 +1404,13 @@ class PaymentEntry(AccountsController):
 	# Clear the reference document which doesn't have allocated amount on validate so that form can be loaded fast
 	def clear_unallocated_reference_document_rows(self):
 		self.set("references", self.get("references", {"allocated_amount": ["not in", [0, None, ""]]}))
-		frappe.db.sql(
-			"""delete from `tabPayment Entry Reference`
-			where parent = %s and allocated_amount = 0""",
-			self.name,
-		)
+		# A new document has no rows yet; the delete would only take gap locks that deadlock concurrent inserts.
+		if not self.is_new():
+			frappe.db.sql(
+				"""delete from `tabPayment Entry Reference`
+				where parent = %s and allocated_amount = 0""",
+				self.name,
+			)
 
 	def set_title(self):
 		if frappe.flags.in_import and self.title:
@@ -2679,6 +2692,9 @@ def get_currency_data(outstanding_refdocs: list, company: str | None = None) -> 
 
 	for doctype in ["Sales Invoice", "Purchase Invoice", "Sales Order", "Purchase Order"]:
 		refdoc = [x.voucher_no for x in outstanding_refdocs if x.voucher_type == doctype]
+		if not refdoc:
+			continue
+
 		for x in frappe.db.get_all(
 			doctype,
 			filters={"name": ["in", refdoc]},
@@ -3642,16 +3658,69 @@ def set_pending_discount_loss(pe, doc, discount_amount, base_total_discount_loss
 
 def split_early_payment_discount_loss(pe, doc, valid_discounts) -> float:
 	"""Split early payment discount into Income Loss & Tax Loss."""
+	discount_loss_rows, base_total_discount_loss = get_early_payment_discount_loss(
+		doc, valid_discounts, pe.payment_type, pe.company, pe.cost_center
+	)
+
+	for row in discount_loss_rows:
+		pe.append("deductions", row)
+
+	return base_total_discount_loss
+
+
+def get_early_payment_discount_loss(
+	doc, valid_discounts, payment_type, company, cost_center=None
+) -> tuple[list[dict], float]:
+	"""Split early payment discount into Income Loss & Tax Loss, in base currency.
+
+	Does not need a Payment Entry, so that other documents can book the same discount.
+
+	Returns the rows (`account`, `cost_center`, `amount`) and the total loss. Amounts are
+	negative for payment type "Pay". The total loss can differ from the sum of the rows
+	by a rounding difference.
+	"""
 	total_discount_percent = get_total_discount_percent(doc, valid_discounts)
 
 	if not total_discount_percent:
-		return 0.0
+		return [], 0.0
 
-	base_loss_on_income = add_income_discount_loss(pe, doc, total_discount_percent)
-	base_loss_on_taxes = add_tax_discount_loss(pe, doc, total_discount_percent)
+	cost_center = cost_center or frappe.get_cached_value("Company", company, "cost_center")
+	positive_negative = -1 if payment_type == "Pay" else 1
+
+	base_loss_on_income = doc.get("base_total") * (total_discount_percent / 100)
+	rows = [
+		{
+			"account": frappe.get_cached_value("Company", company, "default_discount_account"),
+			"cost_center": cost_center,
+			"amount": flt(base_loss_on_income, doc.precision("total")) * positive_negative,
+		}
+	]
+
+	# The same account head could be used more than once
+	base_loss_by_tax_account = {}
+	for tax in doc.get("taxes", []):
+		base_tax_loss = tax.get("base_tax_amount_after_discount_amount") * (total_discount_percent / 100)
+		account = tax.get("account_head")
+		base_loss_by_tax_account[account] = base_loss_by_tax_account.get(account, 0) + base_tax_loss
+
+	tax_precision = doc.precision("tax_amount_after_discount_amount", "taxes")
+	for account, base_tax_loss in base_loss_by_tax_account.items():
+		if base_tax_loss == 0.0:
+			continue
+
+		rows.append(
+			{
+				"account": account,
+				"cost_center": cost_center,
+				"amount": flt(base_tax_loss, tax_precision) * positive_negative,
+			}
+		)
 
 	# Round off total loss rather than individual losses to reduce rounding error
-	return flt(base_loss_on_income + base_loss_on_taxes, doc.precision("grand_total"))
+	base_loss_on_taxes = sum(base_loss_by_tax_account.values())
+	base_total_discount_loss = flt(base_loss_on_income + base_loss_on_taxes, doc.precision("grand_total"))
+
+	return rows, base_total_discount_loss
 
 
 def get_total_discount_percent(doc, valid_discounts) -> float:
@@ -3673,59 +3742,6 @@ def get_total_discount_percent(doc, valid_discounts) -> float:
 		return total_discount_percent
 
 	return total_discount_percent
-
-
-def add_income_discount_loss(pe, doc, total_discount_percent) -> float:
-	"""Add loss on income discount in base currency."""
-	precision = doc.precision("total")
-	base_loss_on_income = doc.get("base_total") * (total_discount_percent / 100)
-	positive_negative = -1 if pe.payment_type == "Pay" else 1
-
-	pe.append(
-		"deductions",
-		{
-			"account": frappe.get_cached_value("Company", pe.company, "default_discount_account"),
-			"cost_center": pe.cost_center or frappe.get_cached_value("Company", pe.company, "cost_center"),
-			"amount": flt(base_loss_on_income, precision) * positive_negative,
-		},
-	)
-
-	return base_loss_on_income  # Return loss without rounding
-
-
-def add_tax_discount_loss(pe, doc, total_discount_percentage) -> float:
-	"""Add loss on tax discount in base currency."""
-	tax_discount_loss = {}
-	base_total_tax_loss = 0
-	precision = doc.precision("tax_amount_after_discount_amount", "taxes")
-	positive_negative = -1 if pe.payment_type == "Pay" else 1
-
-	# The same account head could be used more than once
-	for tax in doc.get("taxes", []):
-		base_tax_loss = tax.get("base_tax_amount_after_discount_amount") * (total_discount_percentage / 100)
-
-		account = tax.get("account_head")
-		if not tax_discount_loss.get(account):
-			tax_discount_loss[account] = base_tax_loss
-		else:
-			tax_discount_loss[account] += base_tax_loss
-
-	for account, loss in tax_discount_loss.items():
-		base_total_tax_loss += loss
-		if loss == 0.0:
-			continue
-
-		pe.append(
-			"deductions",
-			{
-				"account": account,
-				"cost_center": pe.cost_center
-				or frappe.get_cached_value("Company", pe.company, "cost_center"),
-				"amount": flt(loss, precision) * positive_negative,
-			},
-		)
-
-	return base_total_tax_loss  # Return loss without rounding
 
 
 def get_reference_as_per_payment_terms(

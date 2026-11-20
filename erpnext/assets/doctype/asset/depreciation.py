@@ -75,6 +75,7 @@ def book_depreciation_entries(date):
 		set_depr_entry_posting_status_for_failed_assets(failed_assets)
 		notify_depr_entry_posting_error(failed_assets, error_logs)
 	if not frappe.in_test:
+		# nosemgrep: frappe-semgrep-rules.rules.frappe-manual-commit -- background job saves progress or failure status
 		frappe.db.commit()
 
 
@@ -734,7 +735,7 @@ def get_asset_details(asset, finance_book=None, disposal_values: dict | None = N
 	fixed_asset_account, accumulated_depr_account, _ = get_depreciation_accounts(
 		asset.asset_category, asset.company
 	)
-	disposal_account, depreciation_cost_center = get_disposal_account_and_cost_center(asset.company)
+	disposal_account, depreciation_cost_center = _get_disposal_account_and_cost_center(asset.company)
 	depreciation_cost_center = asset.cost_center or depreciation_cost_center
 
 	return (
@@ -848,6 +849,11 @@ def get_profit_gl_entries(
 
 @frappe.whitelist()
 def get_disposal_account_and_cost_center(company):
+	frappe.has_permission("Company", "read", company, throw=True)
+	return _get_disposal_account_and_cost_center(company)
+
+
+def _get_disposal_account_and_cost_center(company):
 	disposal_account, depreciation_cost_center = frappe.get_cached_value(
 		"Company", company, ["disposal_account", "depreciation_cost_center"]
 	)
