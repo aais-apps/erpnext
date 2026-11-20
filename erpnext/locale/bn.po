@@ -9701,7 +9701,6 @@ msgid "Check if material transfer entry is not required"
 msgstr "উপাদান স্থানান্তর এন্ট্রির প্রয়োজন নেই কিনা তা পরীক্ষা করুন"
 
 #: erpnext/accounts/doctype/item_tax_template_detail/item_tax_template_detail.json:30
-#, python-format
 msgid "Check if this tax is not applicable to items (distinct from 0% rate)"
 msgstr "এই করটি আইটেমগুলোর ক্ষেত্রে প্রযোজ্য নয় কিনা তা যাচাই করুন (০% হার থেকে পৃথক)"
 
@@ -21762,7 +21761,6 @@ msgid "In the case of multi-tier program, Customers will be auto assigned to the
 msgstr "মাল্টি-টিয়ার প্রোগ্রামের ক্ষেত্রে, গ্রাহকদের খরচের পরিমাণ অনুযায়ী স্বয়ংক্রিয়ভাবে সংশ্লিষ্ট টিয়ারে নিযুক্ত করা হবে"
 
 #: banking/src/components/features/BankReconciliation/Rules/RuleForm.tsx:753
-#, python-format
 msgid "In this case, the amount will be calculated as 25% of the transaction amount. If the transaction amount is 200, then this will be calculated as 200 * 0.25 = 50."
 msgstr "এক্ষেত্রে, পরিমাণটি লেনদেনের পরিমাণের ২৫% হিসেবে গণনা করা হবে। লেনদেনের পরিমাণ ২০০ হলে, এটি ২০০ * ০.২৫ = ৫০ হিসেবে গণনা করা হবে।"
 
@@ -41908,7 +41906,7 @@ msgid "Row #{0}: Please update deferred revenue/expense account in item row or d
 msgstr "সারি #{0}: অনুগ্রহ করে আইটেম সারিতে বিলম্বিত আয়/ব্যয় অ্যাকাউন্ট বা কোম্পানি মাস্টারে ডিফল্ট অ্যাকাউন্ট আপডেট করুন"
 
 #: erpnext/manufacturing/doctype/bom/bom.py:420
-#, python-brace-format, python-format
+#, python-brace-format
 msgid "Row #{0}: Process Loss Percentage should be less than 100% for {1} Item {2}"
 msgstr "সারি #{0}: {1} আইটেম {2}-এর জন্য প্রক্রিয়া ক্ষয় শতাংশ ১০০% এর কম হওয়া উচিত"
 
@@ -54736,7 +54734,6 @@ msgid "Valuation Rate Missing"
 msgstr "মূল্যায়ন হার অনুপস্থিত"
 
 #: erpnext/manufacturing/doctype/bom_secondary_item/bom_secondary_item.json:181
-#, python-format
 msgid "Valuation Rate and Manual value this item on its own and deduct that cost from the raw material cost, like the pre-v16 scrap items. % of Component Cost allocates a percentage of the remaining raw material cost."
 msgstr "'ভ্যালুয়েশন রেট' এবং 'ম্যানুয়াল' এই আইটেমটিকে নিজস্বভাবে মূল্যায়ন করে এবং v16-পূর্ববর্তী স্ক্র্যাপ আইটেমের মতো কাঁচামালের খরচ থেকে সেই ব্যয়টি বাদ দেয়। '% অফ কম্পোনেন্ট কস্ট' অবশিষ্ট কাঁচামালের খরচের একটি নির্দিষ্ট শতাংশ বরাদ্দ করে।"
 
@@ -58390,7 +58387,7 @@ msgid "{0}% Delivered"
 msgstr "{0}% সরবরাহ করা হয়েছে"
 
 #: erpnext/accounts/doctype/payment_term/payment_term.js:15
-#, python-brace-format, python-format
+#, python-brace-format
 msgid "{0}% of total invoice value will be given as discount."
 msgstr "মোট চালান মূল্যের {0}% ছাড় হিসেবে দেওয়া হবে।"
 
